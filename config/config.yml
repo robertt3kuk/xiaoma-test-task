@@ -1,0 +1,14 @@
+app:
+  name: "test"
+  version: "1.0.0"
+
+http:
+  port: ":8000"
+
+logger:
+  log_level: "debug"
+  rollbar_env: "bilim"
+
+postgres:
+  pool_max: 2
+  url: "postgres://postgres:test@localhost:5436/postgres?sslmode=disable"
