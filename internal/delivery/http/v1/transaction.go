@@ -38,6 +38,7 @@ func (t *TransactionRequest) toModel() model.Transaction {
 		DeletedAt:  nil,
 	}
 }
+
 func (t *TransactionRequest) validate() error {
 	// i need to validate the struct
 	var err string
@@ -58,7 +59,6 @@ func (t *TransactionRequest) validate() error {
 	} else {
 		return nil
 	}
-
 }
 
 func (r *TransactionRoutes) Create(c fiber.Ctx) error {
@@ -116,14 +116,18 @@ func (r *TransactionRoutes) GetAll(c fiber.Ctx) error {
 	limitF := c.FormValue("limit")
 	offsetF := c.FormValue("offset")
 	limit, err := strconv.Atoi(limitF)
-	if err != nil {
-		r.l.Error("TransactionRoutes - GetAll - strconv.Atoi:%w", err)
-		return c.Status(http.StatusBadRequest).JSON(gin.H{"error": "limit is invalid integer"})
+	if limitF != "" {
+		if err != nil {
+			r.l.Error("TransactionRoutes - GetAll - strconv.Atoi:%w", err)
+			return c.Status(http.StatusBadRequest).JSON(gin.H{"error": "limit is invalid integer"})
+		}
 	}
 	offset, err := strconv.Atoi(offsetF)
-	if err != nil {
-		r.l.Error("TransactionRoutes - GetAll - strconv.Atoi:%w", err)
-		return c.Status(http.StatusBadRequest).JSON(gin.H{"error": "offset is invalid integer"})
+	if offsetF != "" {
+		if err != nil {
+			r.l.Error("TransactionRoutes - GetAll - strconv.Atoi:%w", err)
+			return c.Status(http.StatusBadRequest).JSON(gin.H{"error": "offset is invalid integer"})
+		}
 	}
 	result, status := r.s.GetAll(c.Context(), limit, offset)
 	if !status.Ok() {
@@ -157,7 +161,10 @@ func (r *TransactionRoutes) GetTransactionViewByID(c fiber.Ctx) error {
 	}
 	result, status := r.s.GetByTransactionID(c.Context(), idParamInt)
 	if !status.Ok() {
-		r.l.Error("TransactionRoutes - GetTransactionViewByID - r.s.GetByTransactionID:%w", status.Err)
+		r.l.Error(
+			"TransactionRoutes - GetTransactionViewByID - r.s.GetByTransactionID:%w",
+			status.Err,
+		)
 		return c.Status(status.Code).JSON(gin.H{"error": status.Msg})
 	}
 	return c.Status(status.Code).JSON(result)
@@ -185,7 +192,28 @@ func (r *TransactionRoutes) GetAllTransactionView(c fiber.Ctx) error {
 	}
 	result, status := r.s.GetAllTransactionViews(c.Context(), limit, offset)
 	if !status.Ok() {
-		r.l.Error("TransactionRoutes - GetAllTransactionView - r.s.GetAllTransactionViews:%w", status.Err)
+		r.l.Error(
+			"TransactionRoutes - GetAllTransactionView - r.s.GetAllTransactionViews:%w",
+			status.Err,
+		)
+		return c.Status(status.Code).JSON(gin.H{"error": status.Msg})
+	}
+	return c.Status(status.Code).JSON(result)
+}
+
+func (r *TransactionRoutes) GetAllTransactionViewByFilters(c fiber.Ctx) error {
+	filter := model.TransactionFilter{}
+	err := c.Bind().JSON(&filter)
+	if err != nil {
+		r.l.Error("TransactionRoutes - GetAllTransactionViewByFilters - c.Bind:%w", err)
+		return c.Status(http.StatusBadRequest).JSON(gin.H{"error": "invalid request"})
+	}
+	result, status := r.s.GetAllTransactionViewsByFilters(c.Context(), &filter)
+	if !status.Ok() {
+		r.l.Error(
+			"TransactionRoutes - GetAllTransactionViewByFilters - r.s.GetAllTransactionViewsByFilters:%w",
+			status.Err,
+		)
 		return c.Status(status.Code).JSON(gin.H{"error": status.Msg})
 	}
 	return c.Status(status.Code).JSON(result)

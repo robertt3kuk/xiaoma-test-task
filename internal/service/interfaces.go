@@ -22,9 +22,13 @@ type Repo struct {
 
 func New(repo *Repo) *Service {
 	return &Service{
-		Item:        NewItemService(repo.ItemRepository),
-		Customer:    NewCustomerService(repo.CustomerRepository),
-		Transaction: NewTransactionService(repo.TransactionRepository),
+		Item:     NewItemService(repo.ItemRepository),
+		Customer: NewCustomerService(repo.CustomerRepository),
+		Transaction: NewTransactionService(
+			repo.TransactionRepository,
+			repo.CustomerRepository,
+			repo.ItemRepository,
+		),
 	}
 }
 
@@ -60,6 +64,7 @@ type Transaction interface {
 	Delete(ctx context.Context, id int) Status
 	GetAllTransactionViews(ctx context.Context, limit, offset int) ([]model.TransactionView, Status)
 	GetByTransactionID(ctx context.Context, id int) (model.TransactionView, Status)
+	GetAllTransactionViewsByFilters(ctx context.Context, filter *model.TransactionFilter) ([]model.TransactionView, Status)
 }
 
 type ItemRepository interface {
@@ -92,4 +97,5 @@ type TransactionRepository interface {
 	Delete(ctx context.Context, id int) error
 	GetAllTransactionViews(ctx context.Context, limit, offset int) ([]model.TransactionView, error)
 	GetByTransactionID(ctx context.Context, id int) (model.TransactionView, error)
+	GetAllTransactionViewsByFilters(ctx context.Context, filter *model.TransactionFilter) ([]model.TransactionView, error)
 }

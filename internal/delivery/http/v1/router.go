@@ -7,7 +7,6 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 
 	log "github.com/gofiber/fiber/v3/middleware/logger"
-	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/robertt3kuk/xiaoma-test-task/init/logger"
 	"github.com/robertt3kuk/xiaoma-test-task/internal/service"
 )
@@ -22,7 +21,7 @@ func NewRouter(handler *fiber.App, l logger.Interface, t *service.Service) {
 		MaxAge:           3600,
 	}
 	handler.Use(cors.New(conf))
-	handler.Use(recover.New())
+	// handler.Use(recover.New())
 	handler.Use(log.New(log.Config{
 		// For more options, see the Config section
 		Format: "${pid} ${locals:requestid} ${status} - ${method} ${path}​\n",
@@ -32,8 +31,10 @@ func NewRouter(handler *fiber.App, l logger.Interface, t *service.Service) {
 	itemRoutes := NewItemRoutes(l, t.Item)
 	customerRoutes := NewCustomerRoutes(l, t.Customer)
 	transactionRoutes := NewTransactionRoutes(l, t.Transaction)
-
-	h.Get("/healthz", func(c fiber.Ctx) error { return c.Status(http.StatusOK).SendString("up and running") })
+	h.Get(
+		"/healthz",
+		func(c fiber.Ctx) error { return c.Status(http.StatusOK).SendString("up and running") },
+	)
 	items := h.Group("/item")
 	items.Post("", itemRoutes.Create)
 	items.Put("/:id", itemRoutes.Update)
@@ -47,6 +48,7 @@ func NewRouter(handler *fiber.App, l logger.Interface, t *service.Service) {
 	customers.Get("/:id", customerRoutes.GetByID)
 	customers.Get("", customerRoutes.GetAll)
 	customers.Delete("/:id", customerRoutes.Delete)
+	// catch erros
 
 	transactions := h.Group("/transaction")
 	transactions.Post("", transactionRoutes.Create)
@@ -56,6 +58,8 @@ func NewRouter(handler *fiber.App, l logger.Interface, t *service.Service) {
 	transactions.Delete("/:id", transactionRoutes.Delete)
 
 	transactionsView := h.Group("/transaction-view")
+	h.Get("/transaction-view-filter", transactionRoutes.GetAllTransactionViewByFilters)
+
 	transactionsView.Get("/:id", transactionRoutes.GetTransactionViewByID)
 	transactionsView.Get("", transactionRoutes.GetAllTransactionView)
 }

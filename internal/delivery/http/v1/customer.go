@@ -34,8 +34,8 @@ func (c *CustomerRequest) toModel() model.Customer {
 
 func (c *CustomerRequest) validate() error {
 	var err string
-	if c.Name == "" || len(c.Name) < 5 {
-		err += " name is invalid or shorter than 5,"
+	if c.Name == "" || len(c.Name) < 3 {
+		err += " name is invalid or shorter than 3,"
 	}
 	if c.Balance <= 0 {
 		err += " balance is invalid or equal or less than zero"
@@ -45,7 +45,6 @@ func (c *CustomerRequest) validate() error {
 	} else {
 		return nil
 	}
-
 }
 
 func (r *CustomerRoutes) Create(c fiber.Ctx) error {
@@ -67,7 +66,6 @@ func (r *CustomerRoutes) Create(c fiber.Ctx) error {
 		return c.Status(status.Code).JSON(gin.H{"error": status.Msg})
 	}
 	return c.Status(status.Code).JSON(result)
-
 }
 
 func (r *CustomerRoutes) Update(c fiber.Ctx) error {
@@ -79,7 +77,10 @@ func (r *CustomerRoutes) Update(c fiber.Ctx) error {
 	}
 	idParam := c.Params("id")
 	if idParam == "" {
-		r.l.Error("CustomerRoutes - Update - c.Params.Get:%w", errors.New("missing the id parameter"))
+		r.l.Error(
+			"CustomerRoutes - Update - c.Params.Get:%w",
+			errors.New("missing the id parameter"),
+		)
 		return c.Status(400).JSON(gin.H{"error": "invalid request missing id in query parameters"})
 	}
 	idParamInt, err := strconv.Atoi(idParam)
@@ -100,7 +101,10 @@ func (r *CustomerRoutes) Update(c fiber.Ctx) error {
 func (r *CustomerRoutes) GetByID(c fiber.Ctx) error {
 	idParam := c.Params("id")
 	if idParam == "" {
-		r.l.Error("CustomerRoutes - GetByID - c.Params.Get:%w", errors.New("missing the id parameter"))
+		r.l.Error(
+			"CustomerRoutes - GetByID - c.Params.Get:%w",
+			errors.New("missing the id parameter"),
+		)
 		return c.Status(400).JSON(gin.H{"error": "invalid request missing id in query parameters"})
 	}
 	idParamInt, err := strconv.Atoi(idParam)
@@ -120,15 +124,21 @@ func (r *CustomerRoutes) GetAll(c fiber.Ctx) error {
 	limitF := c.FormValue("limit")
 	offsetF := c.FormValue("offest")
 	limit, err := strconv.Atoi(limitF)
-	if err != nil {
-		r.l.Error("CustomerRoutes - GetAll - strconv.Atoi:%w", err)
-		return c.Status(400).JSON(gin.H{"error": "limit is invalid integer"})
+
+	if limitF != "" {
+		if err != nil {
+			r.l.Error("CustomerRoutes - GetAll - strconv.Atoi:%w", err)
+			return c.Status(400).JSON(gin.H{"error": "limit is invalid integer"})
+		}
 	}
 	offset, err := strconv.Atoi(offsetF)
-	if err != nil {
-		r.l.Error("CustomerRoutes - GetAll - strconv.Atoi:%w", err)
-		return c.Status(400).JSON(gin.H{"error": "offset is invalid integer"})
+	if offsetF != "" {
+		if err != nil {
+			r.l.Error("CustomerRoutes - GetAll - strconv.Atoi:%w", err)
+			return c.Status(400).JSON(gin.H{"error": "offset is invalid integer"})
+		}
 	}
+
 	result, status := r.s.GetAll(c.Context(), limit, offset)
 	if !status.Ok() {
 		r.l.Error("CustomerRoutes - GetAll - r.s.GetAll:%w", status.Err)
@@ -140,7 +150,10 @@ func (r *CustomerRoutes) GetAll(c fiber.Ctx) error {
 func (r *CustomerRoutes) Delete(c fiber.Ctx) error {
 	idParam := c.Params("id")
 	if idParam == "" {
-		r.l.Error("CustomerRoutes - Delete - c.Params.Get:%w", errors.New("missing the id parameter"))
+		r.l.Error(
+			"CustomerRoutes - Delete - c.Params.Get:%w",
+			errors.New("missing the id parameter"),
+		)
 		return c.Status(400).JSON(gin.H{"error": "invalid request missing id in query parameters"})
 	}
 	idParamInt, err := strconv.Atoi(idParam)

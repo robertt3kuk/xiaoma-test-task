@@ -2,7 +2,7 @@
 # Makefile for building, running, and managing a Go application with systemd
 
 # Application name
-APP_NAME := immiwhere-backend
+APP_NAME := xiaoma-test
 
 # Service name (should match the systemd service file name)
 SERVICE_NAME := backend

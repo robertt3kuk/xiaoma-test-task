@@ -15,6 +15,12 @@ type Transaction struct {
 	DeletedAt  *time.Time `json:"deleted_at"`
 }
 
+type TransactionFilter struct {
+	ID           int    `json:"id"`
+	CustomerName string `json:"customer_name"`
+	ItemName     string `json:"item_name"`
+}
+
 //swagger:model
 type TransactionView struct {
 	ID           int        `json:"id"`

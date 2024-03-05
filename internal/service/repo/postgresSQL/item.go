@@ -71,7 +71,7 @@ func (p *ItemPostgres) IDByItemName(ctx context.Context, ItemName string) (int, 
 
 func (p *ItemPostgres) GetByID(ctx context.Context, id int) (model.Item, error) {
 	query := `SELECT id, item_name, cost, price, sort, created_at, updated_at, deleted_at 
-	FROM ` + ItemTable + ` WHERE id = $1 AND WHERE deleted_at IS NULL`
+	FROM ` + ItemTable + ` WHERE id = $1 AND  deleted_at IS NULL`
 
 	var item model.Item
 	err := p.pg.Pool.QueryRow(ctx, query, id).Scan(
@@ -79,16 +79,19 @@ func (p *ItemPostgres) GetByID(ctx context.Context, id int) (model.Item, error) 
 		&item.DeletedAt,
 	)
 	if err != nil {
-		return model.Item{}, fmt.Errorf("postgres - ItemPostgres.GetByID - p.pg.Pool.QueryRow: %w", err)
+		return model.Item{}, fmt.Errorf(
+			"postgres - ItemPostgres.GetByID - p.pg.Pool.QueryRow: %w",
+			err,
+		)
 	}
 
 	return item, nil
 }
 
 func (p *ItemPostgres) GetAll(ctx context.Context, limit, offset int) ([]model.Item, error) {
-
 	query := `SELECT id, item_name, cost, price, sort, created_at, updated_at, deleted_at 
-FROM ` + ItemTable + getLimitAndOffset(limit, offset) + " WHERE deleted_at IS NULL"
+FROM ` + ItemTable + " WHERE deleted_at IS NULL" + getLimitAndOffset(limit, offset)
+	fmt.Println(getLimitAndOffset(limit, offset))
 
 	rows, err := p.pg.Pool.Query(ctx, query)
 	if err != nil {
@@ -100,7 +103,13 @@ FROM ` + ItemTable + getLimitAndOffset(limit, offset) + " WHERE deleted_at IS NU
 	for rows.Next() {
 		var item model.Item
 		err := rows.Scan(
-			&item.ID, &item.ItemName, &item.Cost, &item.Price, &item.Sort, &item.CreatedAt, &item.UpdatedAt,
+			&item.ID,
+			&item.ItemName,
+			&item.Cost,
+			&item.Price,
+			&item.Sort,
+			&item.CreatedAt,
+			&item.UpdatedAt,
 			&item.DeletedAt,
 		)
 		if err != nil {
@@ -115,7 +124,6 @@ FROM ` + ItemTable + getLimitAndOffset(limit, offset) + " WHERE deleted_at IS NU
 	}
 
 	return items, nil
-
 }
 
 func (p *ItemPostgres) Update(ctx context.Context, item model.Item) (model.Item, error) {
@@ -130,6 +138,7 @@ func (p *ItemPostgres) Update(ctx context.Context, item model.Item) (model.Item,
 
 	return item, nil
 }
+
 func (p *ItemPostgres) Delete(ctx context.Context, id int) error {
 	// delete by setting deleted_at to time.Now
 	query := `UPDATE ` + ItemTable + ` SET deleted_at= now() WHERE id=$1`

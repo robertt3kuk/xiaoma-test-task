@@ -2,6 +2,7 @@ package v1
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -23,9 +24,9 @@ func NewItemRoutes(l logger.Interface, s service.Item) *ItemRoutes {
 //swagger:model
 type ItemRequest struct {
 	ItemName string  `json:"item_name" required:"true"`
-	Cost     float64 `json:"cost" required:"true"`
-	Price    float64 `json:"price" required:"true"`
-	Sort     int     `json:"sort" required:"true"`
+	Cost     float64 `json:"cost"      required:"true"`
+	Price    float64 `json:"price"     required:"true"`
+	Sort     int     `json:"sort"      required:"true"`
 }
 
 func (i *ItemRequest) toModel() model.Item {
@@ -37,10 +38,11 @@ func (i *ItemRequest) toModel() model.Item {
 		DeletedAt: nil,
 	}
 }
+
 func (i *ItemRequest) validate() error {
 	var err string
-	if i.ItemName == "" || len(i.ItemName) < 5 {
-		err += " item name is invalid or shorter than 5,"
+	if i.ItemName == "" || len(i.ItemName) < 3 {
+		err += " item name is invalid or shorter than 3,"
 	}
 	if i.Cost <= 0 {
 		err += " cost is invalid or under zero,"
@@ -126,15 +128,20 @@ func (r *ItemRoutes) GetByID(c fiber.Ctx) error {
 func (r *ItemRoutes) GetAll(c fiber.Ctx) error {
 	limitF := c.FormValue("limit")
 	offsetF := c.FormValue("offest")
+	fmt.Println(limitF, offsetF)
 	limit, err := strconv.Atoi(limitF)
-	if err != nil {
-		r.l.Error("ItemRoutes - GetAll - strconv.Atoi:%w", err)
-		return c.Status(400).JSON(gin.H{"error": "limit is invalid integer"})
+	if limitF != "" {
+		if err != nil {
+			r.l.Error("ItemRoutes - GetAll - strconv.Atoi:%w", err)
+			return c.Status(400).JSON(gin.H{"error": "limit is invalid integer"})
+		}
 	}
 	offset, err := strconv.Atoi(offsetF)
-	if err != nil {
-		r.l.Error("ItemRoutes - GetAll - strconv.Atoi:%w", err)
-		return c.Status(400).JSON(gin.H{"error": "offset is invalid integer"})
+	if offsetF != "" {
+		if err != nil {
+			r.l.Error("ItemRoutes - GetAll - strconv.Atoi:%w", err)
+			return c.Status(400).JSON(gin.H{"error": "offset is invalid integer"})
+		}
 	}
 	result, status := r.s.GetAll(c.Context(), limit, offset)
 	if !status.Ok() {

@@ -5,6 +5,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app cmd/app/main.
 
 FROM gcr.io/distroless/static
 WORKDIR /bin/
-COPY --from=builder /server/ .
+COPY --from=builder /server/app .
+COPY --from=builder /server/config/ ./config/
 CMD [ "./app" ]
 EXPOSE 8000

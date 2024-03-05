@@ -39,7 +39,7 @@ func (p *CustomerPostgres) IDExists(ctx context.Context, id int) (bool, error) {
 	var exists bool
 	err := p.pg.Pool.QueryRow(
 		ctx, fmt.Sprintf(
-			"SELECT EXISTS(SELECT 1 FROM %s WHERE id = $1 AND WHERE deleted_at IS NULL)",
+			"SELECT EXISTS(SELECT 1 FROM %s WHERE id = $1 AND deleted_at IS NULL)",
 			CustomerTable,
 		), id,
 	).Scan(&exists)
@@ -72,7 +72,7 @@ func (p *CustomerPostgres) GetBalance(ctx context.Context, id int) (float64, err
 	var balance float64
 	err := p.pg.Pool.QueryRow(
 		ctx, fmt.Sprintf(
-			"SELECT balance FROM %s WHERE id = $1 AND WHERE deleted_at IS NULL",
+			"SELECT balance FROM %s WHERE id = $1 AND deleted_at IS NULL",
 			CustomerTable,
 		), id,
 	).Scan(&balance)
@@ -87,7 +87,7 @@ func (p *CustomerPostgres) GetByID(ctx context.Context, id int) (model.Customer,
 	var customer model.Customer
 	err := p.pg.Pool.QueryRow(
 		ctx, fmt.Sprintf(
-			"SELECT id, customer_name, balance, created_at, updated_at, deleted_at FROM %s WHERE id = $1 AND where deleted_at IS NULL",
+			"SELECT id, customer_name, balance, created_at, updated_at, deleted_at FROM %s WHERE id = $1 AND  deleted_at IS NULL",
 			CustomerTable,
 		), id,
 	).Scan(
@@ -104,11 +104,15 @@ func (p *CustomerPostgres) GetByID(ctx context.Context, id int) (model.Customer,
 	return customer, nil
 }
 
-func (p *CustomerPostgres) GetAll(ctx context.Context, limit, offset int) ([]model.Customer, error) {
+func (p *CustomerPostgres) GetAll(
+	ctx context.Context,
+	limit, offset int,
+) ([]model.Customer, error) {
 	rows, err := p.pg.Pool.Query(
 		ctx, fmt.Sprintf(
 			"SELECT id, customer_name, balance, created_at, updated_at, deleted_at FROM %s WHERE deleted_at IS NULL"+getLimitAndOffset(
-				limit, offset,
+				limit,
+				offset,
 			),
 			CustomerTable,
 		),
@@ -142,7 +146,10 @@ func (p *CustomerPostgres) GetAll(ctx context.Context, limit, offset int) ([]mod
 	return customers, nil
 }
 
-func (p *CustomerPostgres) Update(ctx context.Context, customer model.Customer) (model.Customer, error) {
+func (p *CustomerPostgres) Update(
+	ctx context.Context,
+	customer model.Customer,
+) (model.Customer, error) {
 	// update
 	_, err := p.pg.Pool.Exec(
 		ctx, fmt.Sprintf(

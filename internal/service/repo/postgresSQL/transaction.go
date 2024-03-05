@@ -3,7 +3,9 @@ package postgresSQL
 import (
 	"context"
 	"fmt"
+	"strconv"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/robertt3kuk/xiaoma-test-task/init/postgres"
 	"github.com/robertt3kuk/xiaoma-test-task/internal/model"
 )
@@ -18,7 +20,10 @@ func NewTransactionPostgres(pg *postgres.Postgres) *TransactionPostgres {
 
 const TransactionTable = "transaction"
 
-func (p *TransactionPostgres) Create(ctx context.Context, transaction model.Transaction) (int, error) {
+func (p *TransactionPostgres) Create(
+	ctx context.Context,
+	transaction model.Transaction,
+) (int, error) {
 	// return id
 	var id int
 	tx, err := p.pg.Pool.Begin(ctx)
@@ -37,15 +42,21 @@ func (p *TransactionPostgres) Create(ctx context.Context, transaction model.Tran
 		tx.Rollback(ctx)
 		return 0, fmt.Errorf("TransactionPostgres - Create - tx.Pool.Exec: %w", err)
 	}
-	_, err = tx.Exec(
+	ID := tx.QueryRow(
 		ctx, `
 	INSERT INTO `+TransactionTable+`
 	(customer_id, item_id, qty, price, amount, created_at, updated_at, deleted_at)
 	VALUES ($1, $2, $3, $4, $5, now(), now(), null)
+  RETURNING id
 `, transaction.CustomerID, transaction.ItemID, transaction.Qty, transaction.Price, transaction.Amount,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("TransactionPostgres - Create - tx.Pool.Exec: %w", err)
+	}
+	err = ID.Scan(&id)
+	if err != nil {
+		tx.Rollback(ctx)
+		return 0, fmt.Errorf("TransactionPostgres - Create - ID.Scan: %w", err)
 	}
 	err = tx.Commit(ctx)
 	if err != nil {
@@ -80,7 +91,7 @@ func (p *TransactionPostgres) GetByID(ctx context.Context, id int) (model.Transa
 		ctx, `
 	SELECT id, customer_id, item_id, qty, price, amount, created_at, updated_at, deleted_at
 	FROM `+TransactionTable+`
-	WHERE id = $1 AND WHERE deleted_at IS NULL
+	WHERE id = $1 AND deleted_at IS NULL
 `, id,
 	).Scan(
 		&transaction.ID,
@@ -94,19 +105,25 @@ func (p *TransactionPostgres) GetByID(ctx context.Context, id int) (model.Transa
 		&transaction.DeletedAt,
 	)
 	if err != nil {
-		return model.Transaction{}, fmt.Errorf("TransactionPostgres - GetByID - p.pg.Pool.QueryRow: %w", err)
+		return model.Transaction{}, fmt.Errorf(
+			"TransactionPostgres - GetByID - p.pg.Pool.QueryRow: %w",
+			err,
+		)
 	}
 	return transaction, nil
 }
 
-func (p *TransactionPostgres) GetAll(ctx context.Context, limit, offset int) ([]model.Transaction, error) {
+func (p *TransactionPostgres) GetAll(
+	ctx context.Context,
+	limit, offset int,
+) ([]model.Transaction, error) {
 	if limit == 0 {
 		limit = -1
 	}
 	rows, err := p.pg.Pool.Query(
 		ctx, `
 	SELECT id, customer_id, item_id, qty, price, amount, created_at, updated_at, deleted_at
-	FROM `+TransactionTable+getLimitAndOffset(limit, offset)+" WHERE deleted_at IS NULL",
+	FROM `+TransactionTable+" WHERE deleted_at IS NULL"+getLimitAndOffset(limit, offset),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("TransactionPostgres - GetAll - p.pg.Pool.Query: %w", err)
@@ -138,20 +155,25 @@ func (p *TransactionPostgres) GetAll(ctx context.Context, limit, offset int) ([]
 	}
 
 	return transactions, nil
-
 }
 
-func (p *TransactionPostgres) Update(ctx context.Context, transaction model.Transaction) (model.Transaction, error) {
+func (p *TransactionPostgres) Update(
+	ctx context.Context,
+	transaction model.Transaction,
+) (model.Transaction, error) {
 	// at first i need to get the transaction from db and add it's amount to the customer and then minus it with struct's amount and update transaction it self
 	tx, err := p.pg.Pool.Begin(ctx)
 	if err != nil {
-		return model.Transaction{}, fmt.Errorf("TransactionPostgres - Update - p.pg.Pool.Begin: %w", err)
+		return model.Transaction{}, fmt.Errorf(
+			"TransactionPostgres - Update - p.pg.Pool.Begin: %w",
+			err,
+		)
 	}
 	_, err = tx.Exec(
 		ctx, `
         WITH retrieved_data AS (
             SELECT amount, customer_id 
-            FROM TransactionTable 
+            FROM transaction
             WHERE id = $1 
         )
         UPDATE customer
@@ -163,7 +185,10 @@ func (p *TransactionPostgres) Update(ctx context.Context, transaction model.Tran
 
 	if err != nil {
 		tx.Rollback(ctx)
-		return model.Transaction{}, fmt.Errorf("TransactionPostgres - Update - tx.Pool.Exec: %w", err)
+		return model.Transaction{}, fmt.Errorf(
+			"TransactionPostgres - Update - tx.Pool.Exec: %w",
+			err,
+		)
 	}
 
 	_, err = tx.Exec(ctx,
@@ -176,7 +201,10 @@ func (p *TransactionPostgres) Update(ctx context.Context, transaction model.Tran
 
 	if err != nil {
 		tx.Rollback(ctx)
-		return model.Transaction{}, fmt.Errorf("TransactionPostgres - Update - tx.Pool.Exec: %w", err)
+		return model.Transaction{}, fmt.Errorf(
+			"TransactionPostgres - Update - tx.Pool.Exec: %w",
+			err,
+		)
 	}
 
 	_, err = tx.Exec(
@@ -188,12 +216,25 @@ func (p *TransactionPostgres) Update(ctx context.Context, transaction model.Tran
 	)
 	if err != nil {
 		tx.Rollback(ctx)
-		return model.Transaction{}, fmt.Errorf("TransactionPostgres - Update - tx.Pool.Exec: %w", err)
+		return model.Transaction{}, fmt.Errorf(
+			"TransactionPostgres - Update - tx.Pool.Exec: %w",
+			err,
+		)
 	}
 	err = tx.Commit(ctx)
 	if err != nil {
 		tx.Rollback(ctx)
-		return model.Transaction{}, fmt.Errorf("TransactionPostgres - Update - tx.Pool.Commit: %w", err)
+		return model.Transaction{}, fmt.Errorf(
+			"TransactionPostgres - Update - tx.Pool.Commit: %w",
+			err,
+		)
+	}
+	transaction, err = p.GetByID(ctx, transaction.ID)
+	if err != nil {
+		return model.Transaction{}, fmt.Errorf(
+			"TransactionPostgres - Update - s.GetByID: %w",
+			err,
+		)
 	}
 
 	return transaction, nil
@@ -219,14 +260,17 @@ func (p *TransactionPostgres) GetAllTransactionViews(ctx context.Context, limit,
 ) {
 	rows, err := p.pg.Pool.Query(
 		ctx, `
-	SELECT t.id, t.customer_id, c.name, t.item_id, i.name, t.qty, t.price, t.amount, t.created_at, t.updated_at, t.deleted_at
+	SELECT t.id, t.customer_id, c.customer_name, t.item_id, i.item_name, t.qty, t.price, t.amount, t.created_at, t.updated_at, t.deleted_at
 	FROM `+TransactionTable+` AS t
 	INNER JOIN customer AS c ON t.customer_id = c.id
-	INNER JOIN item AS i ON t.item_id = i.id`+
-			getLimitAndOffset(limit, offset)+` WHERE t.deleted_at IS NULL`,
+	INNER JOIN item AS i ON t.item_id = i.id`+` WHERE t.deleted_at IS NULL`+
+			getLimitAndOffset(limit, offset),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("TransactionPostgres - GetAllTransactionViews - p.pg.Pool.Query: %w", err)
+		return nil, fmt.Errorf(
+			"TransactionPostgres - GetAllTransactionViews - p.pg.Pool.Query: %w",
+			err,
+		)
 	}
 	defer rows.Close()
 
@@ -247,7 +291,10 @@ func (p *TransactionPostgres) GetAllTransactionViews(ctx context.Context, limit,
 			&transactionView.DeletedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("TransactionPostgres - GetAllTransactionViews - rows.Scan: %w", err)
+			return nil, fmt.Errorf(
+				"TransactionPostgres - GetAllTransactionViews - rows.Scan: %w",
+				err,
+			)
 		}
 		transactionViews = append(transactionViews, transactionView)
 	}
@@ -259,15 +306,18 @@ func (p *TransactionPostgres) GetAllTransactionViews(ctx context.Context, limit,
 	return transactionViews, nil
 }
 
-func (p *TransactionPostgres) GetByTransactionID(ctx context.Context, id int) (model.TransactionView, error) {
+func (p *TransactionPostgres) GetByTransactionID(
+	ctx context.Context,
+	id int,
+) (model.TransactionView, error) {
 	var transactionView model.TransactionView
 	err := p.pg.Pool.QueryRow(
 		ctx, `
-	SELECT t.id, t.customer_id, c.name, t.item_id, i.name, t.qty, t.price, t.amount, t.created_at, t.updated_at, t.deleted_at
+	SELECT t.id, t.customer_id, c.customer_name, t.item_id, i.item_name, t.qty, t.price, t.amount, t.created_at, t.updated_at, t.deleted_at
 	FROM `+TransactionTable+` AS t
 	INNER JOIN customer AS c ON t.customer_id = c.id
 	INNER JOIN item AS i ON t.item_id = i.id
-	WHERE t.id = $1 AND WHERE t.deleted_at IS NULL
+	WHERE t.id = $1 AND t.deleted_at IS NULL
 `, id,
 	).Scan(
 		&transactionView.ID,
@@ -290,7 +340,10 @@ func (p *TransactionPostgres) GetByTransactionID(ctx context.Context, id int) (m
 	return transactionView, nil
 }
 
-func (p *TransactionPostgres) GetByCustomerName(ctx context.Context, name string) (model.TransactionView, error) {
+func (p *TransactionPostgres) GetByCustomerName(
+	ctx context.Context,
+	name string,
+) (model.TransactionView, error) {
 	var transactionView model.TransactionView
 	err := p.pg.Pool.QueryRow(
 		ctx, `
@@ -321,7 +374,10 @@ func (p *TransactionPostgres) GetByCustomerName(ctx context.Context, name string
 	return transactionView, nil
 }
 
-func (p *TransactionPostgres) GetByItemName(ctx context.Context, name string) (model.TransactionView, error) {
+func (p *TransactionPostgres) GetByItemName(
+	ctx context.Context,
+	name string,
+) (model.TransactionView, error) {
 	var transactionView model.TransactionView
 	err := p.pg.Pool.QueryRow(
 		ctx, `
@@ -350,4 +406,71 @@ func (p *TransactionPostgres) GetByItemName(ctx context.Context, name string) (m
 		)
 	}
 	return transactionView, nil
+}
+
+type mod model.TransactionFilter
+
+func GetQuery(t model.TransactionFilter) (string, []interface{}) {
+	var query string
+	var args []interface{}
+	if t.CustomerName != "" {
+		args = append(args, t.CustomerName)
+		query += " AND customer_name = $" + strconv.Itoa(len(args))
+	}
+	if t.ItemName != "" {
+		args = append(args, t.ItemName)
+		query += " AND item_name = $" + strconv.Itoa(len(args))
+	}
+	if t.ID != 0 {
+		args = append(args, t.ID)
+		query += " AND id = $" + strconv.Itoa(len(args))
+	}
+	return query, args
+}
+
+func (p *TransactionPostgres) GetAllTransactionViewsByFilters(ctx context.Context, filter *model.TransactionFilter) ([]model.TransactionView, error) {
+	query := `
+	SELECT t.id, t.customer_id, c.customer_name, t.item_id, i.item_name, t.qty, t.price, t.amount, t.created_at, t.updated_at, t.deleted_at
+	FROM ` + TransactionTable + ` AS t
+	INNER JOIN customer AS c ON t.customer_id = c.id
+	INNER JOIN item AS i ON t.item_id = i.id
+	WHERE t.deleted_at IS NULL `
+	queryAdd, args := GetQuery(*filter)
+	var err error
+	var rows pgx.Rows
+	if len(args) > 0 {
+		query += queryAdd
+		rows, err = p.pg.Pool.Query(ctx, query, args...)
+	} else {
+		rows, err = p.pg.Pool.Query(ctx, query, args...)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("TransactionPostgres - GetAllTransactionViewsByFilters - p.pg.Pool.Query: %w", err)
+	}
+	var transactionViews []model.TransactionView
+	for rows.Next() {
+		var transactionView model.TransactionView
+		err := rows.Scan(
+			&transactionView.ID,
+			&transactionView.CustomerID,
+			&transactionView.CustomerName,
+			&transactionView.ItemID,
+			&transactionView.ItemName,
+			&transactionView.Qty,
+			&transactionView.Price,
+			&transactionView.Amount,
+			&transactionView.CreatedAt,
+			&transactionView.UpdatedAt,
+			&transactionView.DeletedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"TransactionPostgres - GetAllTransactionViewsByFilters - rows.Scan: %w",
+				err,
+			)
+		}
+		transactionViews = append(transactionViews, transactionView)
+	}
+	return transactionViews, nil
+
 }
